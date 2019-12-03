@@ -16,5 +16,5 @@ path_rss="rss.xml"
 # post processing
 post_processor() { cat "$1"; }
 post_processor_ext="html"
-#post_processor() { echo -e '%(body_pre_docinfo)s\n%(docinfo)s\n%(body)s'|rst2html5 --template=/dev/stdin --stylesheet='' "$1"; } # Defaults to: cat "$1"
+#post_processor() { echo -e '%(body_pre_docinfo)s\n%(docinfo)s\n%(body)s'|rst2html5 -q --template=/dev/stdin --stylesheet='' "$1"; } # Defaults to: cat "$1"
 #post_processor_ext="rst"
