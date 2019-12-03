@@ -39,7 +39,7 @@ post_select() {
 
 post_delete() {
 	sed -i "/<item/{:a;N;/<\\/item>/!ba};/#$base<\\/guid/d" "$p_blog/$path_rss"
-	sed -i "/<div class='entry'>/{:a;N;/<\\/div>/!ba};/id='$base'/d" "$p_blog/$path_blogfile"
+	sed -i "/<div class='entry'>/{:a;N;/<\\/small><\\/div>/!ba};/id='$base'/d" "$p_blog/$path_blogfile"
 	sed -i "/<li>.*<a href='posts\\/$base.html'>/d" "$p_blog/$path_blogindex"
 	rm -f "$p_posts/$base".* "$p_sources/$base".* && echo "Blog post removed." ;}
 
