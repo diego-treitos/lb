@@ -8,14 +8,23 @@ confirm() { read -erp "$* [y/N]: " q; [ "$q" == "y" ] && return 0; return 1; }
 [ ! -f ./blog_config.sh ] && error "Configuration file 'blog_config.sh' not found in local directory."
 
 . ./blog_config.sh
-p_blog="$blog_dir/blog"
-p_posts="$p_blog/posts"
-p_drafts="$p_blog/.drafts"
-p_sources="$p_blog/.sources" # Saved sources for publised posts
+cd "$blog_dir"
+
+p_posts="`date +%Y`" # Current year posts directory
+p_drafts=".drafts"   # Post drafts before published
+p_sources=".sources" # Saved sources for publised posts
 
 if [ ! -d "$p_drafts" ] && (confirm "Initialize blog in $blog_dir?" || exit); then
 	echo "Initializing blog system..."
-	mkdir -pv "$p_blog"{posts,.drafts,.sources}
+	mkdir -pv {.drafts,.sources}
+fi
+
+if [ ! -d "$p_posts" ]; then
+  mkdir "$p_posts"
+  mkdir "$p_posts/assets"
+  pushd "$p_posts" > /dev/null
+  ln -s "../$p_posts" .
+  popd > /dev/null
 	echo "Options +Indexes" > "$p_posts/.htaccess"
 fi
 
@@ -24,23 +33,23 @@ post_new() {
 	echo "$title" | grep -q "\"" && error 'Double quotation marks (") are not allowed in entry titles.'
 	url=`echo "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr '/' '_' | sed "s/-\+/-/g;s/\(^-\|-\$\)//g"`
 	[ -f "$p_drafts/$url.$post_processor_ext" ] && error "There is already an existing draft entry of that same name/URL."
-	[ -f "$p_blog/$url.html" ] && error "There is already an existing published entry of that same name/URL."
+	[ -f "$p_posts/$url.html" ] && error "There is already an existing published entry of that same name/URL."
 	echo "AddDescription \"$title\" \"$url.html\"" >> "$p_posts/.htaccess" || error "Could not write to .htaccess file."
 	$EDITOR "$p_drafts/$url.$post_processor_ext" ;}
 
 post_select() {
   filter="$2"; [ -z "$filter" ] && filter='^$'
   echo "Listing contents of $1"
-	ls -rc "$1" | awk -F '/' '{print $NF}' | grep -Ev "$filter" | nl
+  ls -rc "$1" | awk -F '/' '{print $NF}' | grep -Ev "$filter" | grep -Ev "^(assets|$p_posts)$" | nl
 	read -erp "Please, select a post by number or press ctrl-c to cancel: " number
-	chosen=`ls -rc "$1" | nl | grep -w "$number" | awk '{print $2}'`
+	chosen=`ls -rc "$1" | grep -Ev "$filter" | grep -Ev "^(assets|$p_posts)$" | nl | grep -w "$number" | awk '{print $2}'`
   [ -z "$chosen" ] && exit
 	basefile=`basename "$chosen"` && base="${basefile%.*}" ;}
 
 post_delete() {
-	sed -i "/<item/{:a;N;/<\\/item>/!ba};/#$base<\\/guid/d" "$p_blog/$path_rss"
-	sed -i "/<div class='entry'>/{:a;N;/<\\/small><\\/div>/!ba};/id='$base'/d" "$p_blog/$path_blogfile"
-	sed -i "/<li>.*<a href='posts\\/$base.html'>/d" "$p_blog/$path_blogindex"
+	sed -i "/<item/{:a;N;/<\\/item>/!ba};/#$base<\\/guid/d" "$path_rss"
+	sed -i "/<div class='entry'>/{:a;N;/<\\/small><\\/div>/!ba};/id='$base'/d" "$path_blogfile"
+	sed -i "/<li>.*<a href='$p_posts\\/$base.html'>/d" "$path_blogindex"
 	rm -f "$p_posts/$base".* "$p_sources/$base".* && echo "Blog post removed." ;}
 
 post_publish() {
@@ -54,11 +63,11 @@ post_publish() {
 	tmpdir=`mktemp -d`
 	echo "<html><head><title>$title</title><link rel='stylesheet' type='text/css' href='../$path_css'><meta charset='utf-8'/></head><body class='entry'><div id='topbar'></div><h2 class='ptitle'>$title</h2><small>[<a href='../$path_blogfile#$base'>link</a>&mdash;<a href='$base.html'>standalone</a>]</small>$post_html<footer>by <strong><a href='$author_web'>$author</a></strong></footer></body></html>" > "$p_posts/$base.html"
 	echo "<item><title>$title</title><guid>$blog_site/$path_blogfile#$base</guid><pubDate>$rssdate</pubDate><description><![CDATA[$post_html]]></description></item>" > "$tmpdir/rss"
-	echo "<div class='entry'><h2 id='$base'>$title</h2><small>[<a href='#$base'>link</a>&mdash;<a href='posts/$base.html'>standalone</a>]</small>$post_html<small class='pdate'>$webdate</small></div>" > "$tmpdir/html"
-	echo "<li>`date '+%Y %b %d'` &ndash; <a href='posts/$base.html'>$title</a></li>" > "$tmpdir/index"
-	sed -i "/<!-- LB -->/r $tmpdir/html" "$p_blog/$path_blogfile"
-	sed -i "/<!-- LB -->/r $tmpdir/rss" "$p_blog/$path_rss"
-	sed -i "/<!-- LB -->/r $tmpdir/index" "$p_blog/$path_blogindex"
+	echo "<div class='entry'><h2 id='$base'>$title</h2><small>[<a href='#$base'>link</a>&mdash;<a href='$p_posts/$base.html'>standalone</a>]</small>$post_html<small class='pdate'>$webdate</small></div>" > "$tmpdir/html"
+	echo "<li>`date '+%Y %b %d'` &ndash; <a href='$p_posts/$base.html'>$title</a></li>" > "$tmpdir/index"
+	sed -i "/<!-- LB -->/r $tmpdir/html" "$path_blogfile"
+	sed -i "/<!-- LB -->/r $tmpdir/rss" "$path_rss"
+	sed -i "/<!-- LB -->/r $tmpdir/index" "$path_blogindex"
 	sed -i "/ \"$base.html\"/d" "$p_posts/.htaccess"
 	echo "AddDescription \"$title\" \"$base.html\" #$rssdate" >> "$p_posts/.htaccess"
   mv "$p_drafts/$base.$post_processor_ext" "$p_sources" ;}

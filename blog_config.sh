@@ -3,7 +3,7 @@ author="Luke Smith"
 author_web="https://lukesmith.xyz"
 
 # blog variables
-blog_dir="$PWD"
+blog_dir="blog/"
 blog_site="https://lukesmith.xyz"
 blog_dateformat="+%a, %d %b %Y %H:%M:%S %z"
 
